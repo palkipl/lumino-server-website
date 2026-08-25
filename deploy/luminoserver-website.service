@@ -1,0 +1,14 @@
+[Unit]
+Description=LuminoServer landing page (Node static server)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/lumino-server-website
+ExecStart=/usr/bin/node server.js
+Environment=PORT=8080
+Restart=on-failure
+User=www-data
+
+[Install]
+WantedBy=multi-user.target
