@@ -1,0 +1,9 @@
+{
+  "name": "lumino-server-website",
+  "version": "1.0.0",
+  "description": "Landing page for the LuminoServer Minecraft server",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  }
+}
