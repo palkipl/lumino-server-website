@@ -3,7 +3,7 @@ Description=cloudflared tunnel for luminoserver.com
 After=network.target
 
 [Service]
-Type=notice
+Type=simple
 ExecStart=/usr/bin/cloudflared tunnel --config /etc/cloudflared/luminoserver-config.yml run
 Restart=on-failure
 User=root

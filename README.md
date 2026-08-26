@@ -123,19 +123,23 @@ server.
    sudo apt update && sudo apt install -y cloudflared
    ```
 
-2. Authenticate, if `~/.cloudflared/cert.pem` doesn't already exist from
-   your other project (opens a link — open it in any browser, sign in, and
-   pick the `luminoserver.com` zone to authorize). If the cert already
-   exists but was authorized for a different zone, re-run this and pick
+2. Authenticate as root, since the systemd service in step 6 runs as root
+   and needs to read the credentials from `/root/.cloudflared/` — running
+   as your normal user instead puts them in the wrong home directory and
+   the service will fail with "credentials file doesn't exist". Skip this
+   if `/root/.cloudflared/cert.pem` already exists from your other project
+   (opens a link — open it in any browser, sign in, and pick the
+   `luminoserver.com` zone to authorize). If the cert already exists but
+   was authorized for a different zone, re-run this and pick
    `luminoserver.com` this time:
    ```bash
-   cloudflared tunnel login
+   sudo cloudflared tunnel login
    ```
 
-3. Create a **new, separately-named tunnel** for this site (won't collide
-   with an existing one):
+3. Create a **new, separately-named tunnel** for this site (also as root,
+   for the same reason — keeps credentials under `/root/.cloudflared/`):
    ```bash
-   cloudflared tunnel create luminoserver-website
+   sudo cloudflared tunnel create luminoserver-website
    ```
    Note the tunnel ID it prints — you'll need it next.
 
@@ -148,10 +152,12 @@ server.
    sudo nano /etc/cloudflared/luminoserver-config.yml   # replace <TUNNEL_ID> in both places
    ```
 
-5. Route the domain to this tunnel (creates the DNS records for you):
+5. Route the domain to this tunnel (creates the DNS records for you; use
+   `sudo` here too so it reads the same root-owned cert/tunnel list from
+   steps 2-3):
    ```bash
-   cloudflared tunnel route dns luminoserver-website luminoserver.com
-   cloudflared tunnel route dns luminoserver-website www.luminoserver.com
+   sudo cloudflared tunnel route dns luminoserver-website luminoserver.com
+   sudo cloudflared tunnel route dns luminoserver-website www.luminoserver.com
    ```
 
 6. Install a **dedicated systemd service** (separate unit name — `cloudflared-luminoserver`
