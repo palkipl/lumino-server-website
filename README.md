@@ -93,3 +93,62 @@ sudo ufw allow 8080/tcp   # if ufw is active
 ```
 Then visit `http://your_server_ip:8080`. Check status/logs with
 `sudo systemctl status luminoserver-website` or `sudo journalctl -u luminoserver-website -f`.
+
+## Custom domain via Cloudflare Tunnel (cloudflared)
+
+Use this if you want the site reachable at a real domain (e.g.
+`luminoserver.com`) without opening any inbound ports — useful when the
+server is behind NAT or reachable only through a tunnel like playit.gg.
+Cloudflare also terminates HTTPS for you automatically.
+
+**Prerequisites (done once, in your browser/registrar — not on the server):**
+1. Own the domain and add it as a site in the
+   [Cloudflare dashboard](https://dash.cloudflare.com) (free plan works).
+2. Point the domain's nameservers at the two Cloudflare gave you, at your
+   registrar. Wait until Cloudflare shows the zone as **Active**.
+
+**On the server:**
+
+1. Install `cloudflared`:
+   ```bash
+   sudo mkdir -p /usr/share/keyrings
+   curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+   echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
+   sudo apt update && sudo apt install -y cloudflared
+   ```
+
+2. Log in (opens a link — open it in any browser, sign in, and pick your
+   domain's zone to authorize):
+   ```bash
+   cloudflared tunnel login
+   ```
+
+3. Create the tunnel:
+   ```bash
+   cloudflared tunnel create luminoserver
+   ```
+   Note the tunnel ID it prints — you'll need it next.
+
+4. Set up the config:
+   ```bash
+   sudo mkdir -p /etc/cloudflared
+   sudo cp /var/www/lumino-server-website/deploy/cloudflared-config.yml /etc/cloudflared/config.yml
+   sudo nano /etc/cloudflared/config.yml   # replace <TUNNEL_ID> in both places
+   ```
+
+5. Route the domain to the tunnel (creates the DNS records for you):
+   ```bash
+   cloudflared tunnel route dns luminoserver luminoserver.com
+   cloudflared tunnel route dns luminoserver www.luminoserver.com
+   ```
+
+6. Run it as a service so it survives reboots:
+   ```bash
+   sudo cloudflared service install
+   sudo systemctl enable --now cloudflared
+   ```
+
+Then visit `https://luminoserver.com` — Cloudflare handles TLS, and traffic
+is tunneled straight to Nginx on the server with no open inbound ports
+needed. Check status/logs with `sudo systemctl status cloudflared` or
+`sudo journalctl -u cloudflared -f`.
