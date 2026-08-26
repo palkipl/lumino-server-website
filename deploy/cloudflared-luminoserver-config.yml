@@ -1,0 +1,14 @@
+# Dedicated config for the LuminoServer tunnel only — does not touch
+# /etc/cloudflared/config.yml or any tunnel used by another project.
+# Save this as /etc/cloudflared/luminoserver-config.yml
+# Replace <TUNNEL_ID> with the ID printed by `cloudflared tunnel create luminoserver-website`.
+
+tunnel: <TUNNEL_ID>
+credentials-file: /root/.cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  - hostname: luminoserver.com
+    service: http://localhost:80
+  - hostname: www.luminoserver.com
+    service: http://localhost:80
+  - service: http_status:404

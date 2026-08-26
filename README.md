@@ -101,6 +101,12 @@ Use this if you want the site reachable at a real domain (e.g.
 server is behind NAT or reachable only through a tunnel like playit.gg.
 Cloudflare also terminates HTTPS for you automatically.
 
+These steps create a **second, independent tunnel** dedicated to this site —
+distinct tunnel name, config file, and systemd service — so an existing
+`cloudflared` tunnel already running on the same server for another project
+is untouched. Skip the install step if `cloudflared` is already on the
+server.
+
 **Prerequisites (done once, in your browser/registrar — not on the server):**
 1. Own the domain and add it as a site in the
    [Cloudflare dashboard](https://dash.cloudflare.com) (free plan works).
@@ -109,7 +115,7 @@ Cloudflare also terminates HTTPS for you automatically.
 
 **On the server:**
 
-1. Install `cloudflared`:
+1. Install `cloudflared` (skip if you already have it from another project):
    ```bash
    sudo mkdir -p /usr/share/keyrings
    curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
@@ -117,38 +123,47 @@ Cloudflare also terminates HTTPS for you automatically.
    sudo apt update && sudo apt install -y cloudflared
    ```
 
-2. Log in (opens a link — open it in any browser, sign in, and pick your
-   domain's zone to authorize):
+2. Authenticate, if `~/.cloudflared/cert.pem` doesn't already exist from
+   your other project (opens a link — open it in any browser, sign in, and
+   pick the `luminoserver.com` zone to authorize). If the cert already
+   exists but was authorized for a different zone, re-run this and pick
+   `luminoserver.com` this time:
    ```bash
    cloudflared tunnel login
    ```
 
-3. Create the tunnel:
+3. Create a **new, separately-named tunnel** for this site (won't collide
+   with an existing one):
    ```bash
-   cloudflared tunnel create luminoserver
+   cloudflared tunnel create luminoserver-website
    ```
    Note the tunnel ID it prints — you'll need it next.
 
-4. Set up the config:
+4. Set up a **dedicated config file** (a distinct path, not
+   `/etc/cloudflared/config.yml`, so it can't overwrite another project's
+   config):
    ```bash
    sudo mkdir -p /etc/cloudflared
-   sudo cp /var/www/lumino-server-website/deploy/cloudflared-config.yml /etc/cloudflared/config.yml
-   sudo nano /etc/cloudflared/config.yml   # replace <TUNNEL_ID> in both places
+   sudo cp /var/www/lumino-server-website/deploy/cloudflared-luminoserver-config.yml /etc/cloudflared/luminoserver-config.yml
+   sudo nano /etc/cloudflared/luminoserver-config.yml   # replace <TUNNEL_ID> in both places
    ```
 
-5. Route the domain to the tunnel (creates the DNS records for you):
+5. Route the domain to this tunnel (creates the DNS records for you):
    ```bash
-   cloudflared tunnel route dns luminoserver luminoserver.com
-   cloudflared tunnel route dns luminoserver www.luminoserver.com
+   cloudflared tunnel route dns luminoserver-website luminoserver.com
+   cloudflared tunnel route dns luminoserver-website www.luminoserver.com
    ```
 
-6. Run it as a service so it survives reboots:
+6. Install a **dedicated systemd service** (separate unit name — `cloudflared-luminoserver`
+   — so it starts/stops independently of any existing `cloudflared` service):
    ```bash
-   sudo cloudflared service install
-   sudo systemctl enable --now cloudflared
+   sudo cp /var/www/lumino-server-website/deploy/cloudflared-luminoserver.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now cloudflared-luminoserver
    ```
 
 Then visit `https://luminoserver.com` — Cloudflare handles TLS, and traffic
 is tunneled straight to Nginx on the server with no open inbound ports
-needed. Check status/logs with `sudo systemctl status cloudflared` or
-`sudo journalctl -u cloudflared -f`.
+needed, running alongside your other tunnel with no shared state. Check
+status/logs with `sudo systemctl status cloudflared-luminoserver` or
+`sudo journalctl -u cloudflared-luminoserver -f`.
